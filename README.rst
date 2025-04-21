@@ -23,7 +23,10 @@ This project serves as a clear and concise demonstration of how HTML, CSS, and J
 This project is designed for simplicity:
 
 1.  **Clone or Download:** Get the code onto your local machine.
-    ```bash git clone https://github.com/OleksandrMyronchuk/myrni-casino.git```
+.. code-block:: bash
+
+   git clone https://github.com/OleksandrMyronchuk/myrni-casino.git
+
     Alternatively, download the zip file from the GitHub page.
 2.  **Open the File:** Navigate to the project directory and simply open the `index.html` file in any modern web browser (Chrome, Firefox, Safari, Edge, etc.).
 3.  **Play:** Set your initial balance, bet amount per click, and maximum total bet. Click "Start Game". Then, click on the areas of the roulette table (numbers, red/black, etc.) to place chips. Click "Place Bets" to spin the wheel and see the result, or "Skip Round" to spin without betting.
@@ -31,10 +34,11 @@ This project is designed for simplicity:
 ## 📁 File Structure
 
 The entire project is contained within a single file:
-```
-.
-└── index.html
-```
+.. code-block:: text
+
+   .
+   └── index.html
+
 ## 🛠️ Technologies Used
 
 *   **HTML5:** For the structure and layout of the page.
