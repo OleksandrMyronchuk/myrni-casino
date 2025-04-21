@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roulette Casino Emulator (OOP)</title>
+    <style>
+        /* Keep original CSS styles */
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 1000px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; gap: 20px; }
+        .controls-area, .game-info-area { flex: 1 1 300px; /* Adjust basis as needed */ }
+        .roulette-area { flex: 2 1 500px; /* Allow roulette area to take more space */ min-width: 400px; }
+
+
+        h1, h2 { color: #0056b3; }
+        .controls, .game-state, .results, .history, .statistics { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .controls label { display: inline-block; width: 150px; margin-bottom: 8px; }
+        .controls input, .controls select, .controls button { margin-bottom: 8px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .controls button { background-color: #007bff; color: white; cursor: pointer; border: none; }
+        .controls button:hover:not(:disabled) { background-color: #0056b3; }
+        .controls button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .game-state p, .results p { margin: 5px 0; }
+        .win { color: green; font-weight: bold; }
+        .loss { color: red; font-weight: bold; }
+         .green { color: green; }
+         .red { color: red; }
+         .black { color: black; }
+        .history-list { max-height: 200px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 10px; }
+        .history-item { margin-bottom: 5px; padding: 5px; border-bottom: 1px dashed #eee; font-size: 0.9em; }
+        .history-item:last-child { border-bottom: none; }
+        .stats-list { max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 10px; font-size: 0.9em; }
+        .stats-list p { margin: 3px 0; }
+        /* betTargetInput and label were already hidden, now fully removed */
+
+
+        /* --- Roulette Table Styles --- */
+        .roulette-table {
+            background-color: #0a5a2a; /* Green felt color */
+            border: 5px solid #3e2723; /* Dark wood border */
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none; /* Prevent text selection on table */
+        }
+
+        .roulette-grid {
+            display: grid;
+            /* 0, then 3 columns (1-3, 4-6, etc.) */
+            grid-template-columns: 1fr repeat(3, 1fr); /* Zero column + 3 number columns */
+            grid-template-rows: repeat(13, 1fr) 0.5fr; /* Zero row + 12 number rows + Bottom row for dozens */
+            gap: 3px; /* Space between cells */
+            width: 100%;
+            max-width: 500px; /* Max width for the core number grid */
+            position: relative; /* Needed for positioning chips */
+        }
+
+        .grid-cell {
+            background-color: #eee;
+            border: 1px solid #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative; /* For absolute positioning of chips */
+            padding: 5px 0; /* Vertical padding */
+             transition: background-color 0.1s ease, box-shadow 0.1s ease; /* Smooth transition for hover/selection */
+        }
+         .grid-cell:hover {
+            background-color: #ccc;
+         }
+
+        /* Specific cell styles */
+        .cell-0 {
+            background-color: #006400; /* Dark green for zero */
+            color: white;
+            grid-column: 1 / span 1; /* Position in the first column */
+            grid-row: 1 / span 13; /* Span all 13 rows (zero + 12 number rows) */
+             border-radius: 5px 0 0 5px; /* Rounded left edge */
+             font-size: 1.5em;
+        }
+        .cell-0:hover {
+             background-color: #005000;
+        }
+
+        .number-cell {
+             color: black; /* Default text color */
+             min-height: 30px; /* Minimum height for number cells */
+             font-size: 1.1em;
+        }
+         .number-cell.red { background-color: #d32f2f; color: white; } /* Red */
+         .number-cell.black { background-color: #212121; color: white; } /* Black */
+         /* .number-cell.green is not used for 1-36 */
+
+        .red:hover { background-color: #c62828; }
+        .black:hover { background-color: #000; }
+
+
+        /* Outside Bets Area */
+        .outside-bets {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 500px; /* Match grid width */
+            margin-top: 3px; /* Space below grid */
+            gap: 3px;
+        }
+
+        .dozen-row, .half-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3px;
+        }
+
+        .dozen-row .grid-cell, .half-row .grid-cell,
+        .column-row .grid-cell, .zero-bottom-cell {
+             min-height: 40px; /* Minimum height for outside bet cells */
+             text-transform: uppercase;
+             font-size: 0.9em;
+        }
+
+         .half-row {
+             grid-template-columns: repeat(6, 1fr); /* Low, Even, Red, Black, Odd, High */
+         }
+
+         .column-row {
+             display: grid;
+             grid-template-columns: 1fr repeat(3, 1fr); /* Space below 0 + 3 columns */
+             gap: 3px;
+         }
+
+         .zero-bottom-cell {
+             grid-column: 1 / span 1; /* Align under zero column */
+             background-color: transparent; /* No background for space under 0 */
+             border: none;
+             cursor: default;
+         }
+         .zero-bottom-cell:hover { background-color: transparent; }
+
+
+         /* Specific Outside Bet Styles */
+         .bet-dozen1, .bet-dozen2, .bet-dozen3 { grid-column: span 1; }
+         .bet-low, .bet-even, .bet-red, .bet-black, .bet-odd, .bet-high { grid-column: span 1; }
+         .bet-col1, .bet-col2, .bet-col3 { grid-column: span 1; }
+         .bet-col1 { grid-column: 2 / span 1; } /* Position under the 1st column numbers */
+         .bet-col2 { grid-column: 3 / span 1; } /* Position under the 2nd column numbers */
+         .bet-col3 { grid-column: 4 / span 1; } /* Position under the 3rd column numbers */
+
+
+        /* Visual Chip */
+        .chip {
+            position: absolute;
+            width: 30px; /* Chip size */
+            height: 30px;
+            background-color: gold; /* Chip color */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: black;
+            border: 2px solid #b8860b; /* Darker gold border */
+            pointer-events: none; /* Allow clicks to go through to the cell */
+            z-index: 10; /* Ensure chip is above the cell */
+             /* Center the chip within its relatively positioned parent (.grid-cell) */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            /* Added styles for multiple chips if needed in the future, e.g., stacking */
+            /* For now, simply placing one chip per cell showing the total amount */
+        }
+
+        /* Highlight for selected bet area (now highlights ALL cells with chips) */
+        .grid-cell.selected {
+            box-shadow: inset 0 0 10px 2px rgba(0, 255, 0, 0.8); /* Green glow */
+             background-color: rgba(144, 238, 144, 0.5); /* Lighter green overlay */
+        }
+
+         /* Highlight for the winning number after spin */
+         .grid-cell.winning-cell {
+             box-shadow: 0 0 15px 3px rgba(255, 215, 0, 1); /* Gold glow */
+              background-color: rgba(255, 215, 0, 0.5); /* Lighter gold overlay */
+         }
+
+
+        /* Make controls area responsive */
+        @media (min-width: 768px) {
+             .container { flex-direction: row; }
+             .controls-area, .game-info-area { flex-basis: 300px; } /* Keep sidebar width */
+             .roulette-area { flex-basis: auto; flex-grow: 2; /* Allow roulette area to grow */ }
+        }
+        @media (max-width: 767px) {
+             .container { flex-direction: column; }
+             .roulette-grid, .outside-bets { max-width: 100%; /* Allow table to use more width on small screens */ }
+              .controls label { width: auto; margin-right: 10px;}
+               .controls input, .controls select { width: auto; }
+        }
+
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="controls-area">
+             <div class="controls">
+                 <h2>Setup</h2>
+                 <label for="initialBalance">Initial Balance:</label>
+                 <input type="number" id="initialBalance" value="1000" min="1"><br>
+
+                 <label for="betIncrementAmount">Bet Amount Per Click:</label>
+                 <input type="number" id="betIncrementAmount" value="10" min="1"><br>
+
+                 <!-- Changed label text to clarify it applies to the total bet -->
+                 <label for="maxBet">Maximum Total Bet Per Round:</label>
+                 <input type="number" id="maxBet" value="100" min="1"><br>
+
+                 <!-- Strategy selector removed -->
+
+                 <button id="startGameBtn">Start Game</button>
+             </div>
+
+             <div class="game-state">
+                 <h2>Game State</h2>
+                 <p>Balance: $<span id="balanceDisplay">0</span></p>
+                 <!-- currentBetDisplay now shows the TOTAL amount staged across all bets -->
+                 <p>Total Staged Bet: $<span id="totalStagedBetDisplay">0</span></p>
+                 <p>Number of Bets Placed: <span id="numberOfBetsDisplay">0</span></p> <!-- New display for multiple bets -->
+             </div>
+
+             <div class="results">
+                 <h2>Last Round</h2>
+                 <p>Status: <span id="statusDisplay">Game not started.</span></p>
+                 <p>Spin Result: <span id="lastResultDisplay">-</span></p>
+                 <p>Outcome: <span id="outcomeDisplay">-</span></p>
+             </div>
+
+             <div class="controls">
+                  <!-- Renamed to "Place Bets" as it now places all staged bets -->
+                  <button id="placeBetBtn" disabled>Place Bets</button>
+                  <!-- New button to clear staged bets -->
+                  <button id="clearBetsBtn" disabled>Clear Bets</button>
+                  <button id="skipBetBtn" disabled>Skip Round (Spin)</button>
+                  <button id="resetGameBtn">Reset Game</button>
+             </div>
+        </div>
+
+        <div class="roulette-area">
+            <div class="roulette-table">
+                <div class="roulette-grid">
+                    <!-- Zero -->
+                    <div class="grid-cell cell-0" data-bet-type="straight" data-bet-target="0">0</div>
+
+                    <!-- Numbers 1-36 -->
+                    <!-- Row 1: 1, 2, 3 -->
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="1">1</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="2">2</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="3">3</div>
+                    <!-- Row 2: 4, 5, 6 -->
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="4">4</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="5">5</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="6">6</div>
+                    <!-- Row 3: 7, 8, 9 -->
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="7">7</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="8">8</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="9">9</div>
+                    <!-- Row 4: 10, 11, 12 -->
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="10">10</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="11">11</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="12">12</div>
+                    <!-- Row 5: 13, 14, 15 -->
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="13">13</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="14">14</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="15">15</div>
+                     <!-- Row 6: 16, 17, 18 -->
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="16">16</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="17">17</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="18">18</div>
+                     <!-- Row 7: 19, 20, 21 -->
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="19">19</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="20">20</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="21">21</div>
+                     <!-- Row 8: 22, 23, 24 -->
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="22">22</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="23">23</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="24">24</div>
+                     <!-- Row 9: 25, 26, 27 -->
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="25">25</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="26">26</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="27">27</div>
+                     <!-- Row 10: 28, 29, 30 -->
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="28">28</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="29">29</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="30">30</div>
+                     <!-- Row 11: 31, 32, 33 -->
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="31">31</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="32">32</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="33">33</div>
+                     <!-- Row 12: 34, 35, 36 -->
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="34">34</div>
+                    <div class="grid-cell number-cell black" data-bet-type="straight" data-bet-target="35">35</div>
+                    <div class="grid-cell number-cell red" data-bet-type="straight" data-bet-target="36">36</div>
+
+                     <!-- Bottom Row (Columns) -->
+                     <div class="zero-bottom-cell"></div> <!-- Placeholder under 0 -->
+                     <div class="grid-cell bet-col1" data-bet-type="col1" data-bet-target="col1">2:1</div>
+                     <div class="grid-cell bet-col2" data-bet-type="col2" data-bet-target="col2">2:1</div>
+                     <div class="grid-cell bet-col3" data-bet-type="col3" data-bet-target="col3">2:1</div>
+
+                </div>
+
+                <div class="outside-bets">
+                     <div class="dozen-row">
+                         <div class="grid-cell bet-dozen1" data-bet-type="dozen1" data-bet-target="dozen1">1st 12</div>
+                         <div class="grid-cell bet-dozen2" data-bet-type="dozen2" data-bet-target="dozen2">2nd 12</div>
+                         <div class="grid-cell bet-dozen3" data-bet-type="dozen3" data-bet-target="dozen3">3rd 12</div>
+                     </div>
+                     <div class="half-row">
+                         <div class="grid-cell bet-low" data-bet-type="low" data-bet-target="low">1-18</div>
+                         <div class="grid-cell bet-even" data-bet-type="even" data-bet-target="even">Even</div>
+                         <div class="grid-cell bet-red" data-bet-type="red" data-bet-target="red">Red</div>
+                         <div class="grid-cell bet-black" data-bet-type="black" data-bet-target="black">Black</div>
+                         <div class="grid-cell bet-odd" data-bet-type="odd" data-bet-target="odd">Odd</div>
+                         <div class="grid-cell bet-high" data-bet-type="high" data-bet-target="high">19-36</div>
+                     </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="game-info-area">
+            <div class="history">
+                <h2>History</h2>
+                <div id="historyList" class="history-list">
+                    <!-- History items will be added here -->
+                </div>
+            </div>
+
+            <div class="statistics">
+                <h2>Spin Result Statistics</h2>
+                 <!-- Updated display text for clarity -->
+                <p>Most Frequent Result Number: <span id="mostFrequentResultDisplay">-</span></p>
+                <p>Result with Highest Net Profit (from played rounds): <span id="highestProfitResultDisplay">-</span></p>
+
+                <div id="statsList" class="stats-list">
+                     <!-- Stats items will be added here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        // --- Constants (can be accessible globally or passed to relevant classes) ---
+
+        const NUMBER_COLORS = {
+            0: 'green',
+            1: 'red', 2: 'black', 3: 'red', 4: 'black', 5: 'red', 6: 'black',
+            7: 'red', 8: 'black', 9: 'red', 10: 'black', 11: 'black', 12: 'red',
+            13: 'black', 14: 'red', 15: 'black', 16: 'red', 17: 'black', 18: 'red',
+            19: 'red', 20: 'black', 21: 'red', 22: 'black', 23: 'red', 24: 'black',
+            25: 'red', 26: 'black', 27: 'red', 28: 'black', 29: 'black', 30: 'red',
+            31: 'black', 32: 'red', 33: 'black', 34: 'red', 35: 'black', 36: 'red'
+        };
+
+        const COLUMNS = {
+            col1: [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
+            col2: [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
+            col3: [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]
+        };
+
+        const BET_PAYOUTS = {
+            straight: 36, // 35:1 profit + 1:1 stake return
+            red: 2,      // 1:1 profit + 1:1 stake return
+            black: 2,
+            even: 2,
+            odd: 2,
+            low: 2,      // 1-18
+            high: 2,     // 19-36
+            dozen1: 3,   // 2:1 profit + 1:1 stake return (1-12)
+            dozen2: 3,   // 13-24
+            dozen3: 3,   // 25-36
+            col1: 3,     // Column 1
+            col2: 3,     // Column 2
+            col3: 3      // Column 3
+        };
+
+         const BET_TYPE_NAMES = {
+             straight: 'Straight Up',
+             red: 'Red',
+             black: 'Black',
+             even: 'Even',
+             odd: 'Odd',
+             low: '1 to 18 (Low)',
+             high: '19 to 36 (High)',
+             dozen1: '1st 12',
+             dozen2: '2nd 12',
+             dozen3: '3rd 12',
+             col1: 'Column 1',
+             col2: 'Column 2',
+             col3: 'Column 3'
+             // Add other bet types here
+         };
+
+
+        // --- Class Definitions ---
+
+        class Bet {
+            constructor(type, target, amount, cellElement) {
+                this.type = type;
+                this.target = target; // Can be number (0-36) or string ('red', 'dozen1', etc.)
+                this.amount = amount; // Amount for *this specific bet*
+                this.cellElement = cellElement; // Reference to the clicked DOM element
+                // Create a unique key for this bet spot
+                this.key = type + (target !== null ? '_' + target : '');
+            }
+
+            // Determines if this specific bet wins against the spin result
+            isWinningBet(spinResult) {
+                 if (spinResult === null || spinResult === undefined) return false; // Cannot win without a result
+
+                switch (this.type) {
+                    case 'straight':
+                        return spinResult === this.target;
+                    case 'red':
+                        return spinResult !== 0 && NUMBER_COLORS[spinResult] === 'red';
+                    case 'black':
+                        return spinResult !== 0 && NUMBER_COLORS[spinResult] === 'black';
+                    case 'even':
+                        return spinResult !== 0 && spinResult % 2 === 0;
+                    case 'odd':
+                        return spinResult !== 0 && spinResult % 2 !== 0;
+                    case 'low': // 1-18
+                        return spinResult >= 1 && spinResult <= 18;
+                    case 'high': // 19-36
+                        return spinResult >= 19 && spinResult <= 36;
+                    case 'dozen1': // 1-12
+                        return spinResult >= 1 && spinResult <= 12;
+                    case 'dozen2': // 13-24
+                        return spinResult >= 13 && spinResult <= 24;
+                    case 'dozen3': // 25-36
+                        return spinResult >= 25 && spinResult <= 36;
+                    case 'col1': // Column 1
+                        return COLUMNS.col1.includes(spinResult);
+                    case 'col2': // Column 2
+                        return COLUMNS.col2.includes(spinResult);
+                    case 'col3': // Column 3
+                        return COLUMNS.col3.includes(spinResult);
+                    default:
+                        return false; // Unknown bet type
+                }
+            }
+
+            // Calculates the total amount returned (stake + profit) for this bet if it wins
+            calculateReturn(spinResult) {
+                if (this.isWinningBet(spinResult)) {
+                    const payoutMultiplier = BET_PAYOUTS[this.type] || 0; // Get multiplier from constants
+                    return this.amount * payoutMultiplier;
+                }
+                return 0; // Returns 0 if it doesn't win
+            }
+        }
+
+        class RouletteWheel {
+            spin() {
+                // Simulate a roulette spin (0-36)
+                return Math.floor(Math.random() * 37); // Returns 0 to 36
+            }
+        }
+
+        class GameStats {
+            constructor() {
+                this.spinResultStats = {}; // { number: { profitWhenLanded: N, totalLandings: N } }
+                this.resetStats(); // Initialize on creation
+            }
+
+            resetStats() {
+                 this.spinResultStats = {};
+                 for (let i = 0; i <= 36; i++) {
+                     this.spinResultStats[i] = { profitWhenLanded: 0, totalLandings: 0 };
+                 }
+            }
+
+            // Updates stats for a specific number that landed
+            // Called for BOTH played and skipped rounds.
+            updateStats(spinResult, netProfitThisRound, roundType) {
+                if (this.spinResultStats[spinResult] === undefined) {
+                     // Should be initialized 0-36, but add for safety
+                     this.spinResultStats[spinResult] = { profitWhenLanded: 0, totalLandings: 0 };
+                }
+
+                // Always increment the total landing count
+                this.spinResultStats[spinResult].totalLandings++;
+
+                // Only add profit if the round was played
+                if (roundType === 'played') {
+                    this.spinResultStats[spinResult].profitWhenLanded += netProfitThisRound;
+                }
+            }
+
+            // Provides data formatted for display
+            getStatsData() {
+                const numbersWithLandings = Object.keys(this.spinResultStats).map(Number).filter(num => this.spinResultStats[num].totalLandings > 0);
+
+                // Sort for display: Primarily by total landings descending, secondarily by profit descending, thirdly by number ascending
+                numbersWithLandings.sort((a, b) => {
+                    const statsA = this.spinResultStats[a];
+                    const statsB = this.spinResultStats[b];
+
+                    if (statsB.totalLandings !== statsA.totalLandings) {
+                        return statsB.totalLandings - statsA.totalLandings; // More frequent first
+                    }
+                    if (statsB.profitWhenLanded !== statsA.profitWhenLanded) {
+                        return statsB.profitWhenLanded - statsA.profitWhenLanded; // Higher profit first
+                    }
+                    return a - b; // Smaller number first
+                });
+
+                let mostFrequentNumber = null;
+                let highestProfitNumber = null;
+
+                if (numbersWithLandings.length > 0) {
+                     mostFrequentNumber = {
+                          number: numbersWithLandings[0],
+                          landings: this.spinResultStats[numbersWithLandings[0]].totalLandings
+                     };
+
+                    // Find Highest Profit number (needs a separate iteration/sort if not the same as most frequent)
+                    const numbersSortedByProfit = Object.keys(this.spinResultStats).map(Number).filter(num => this.spinResultStats[num].totalLandings > 0);
+                    numbersSortedByProfit.sort((a, b) => {
+                         const statsA = this.spinResultStats[a];
+                         const statsB = this.spinResultStats[b];
+                         if (statsB.profitWhenLanded !== statsA.profitWhenLanded) {
+                             return statsB.profitWhenLanded - statsA.profitWhenLanded;
+                         }
+                         return a - b; // Tie-break by number
+                    });
+
+                     if (numbersSortedByProfit.length > 0) {
+                          highestProfitNumber = {
+                               number: numbersSortedByProfit[0],
+                               profit: this.spinResultStats[numbersSortedByProfit[0]].profitWhenLanded
+                          };
+                     }
+                }
+
+
+                 // Create the detailed list for display (sorted by frequency/profit as per numbersWithLandings)
+                const detailedStatsList = numbersWithLandings.map(number => ({
+                    number: number,
+                    landings: this.spinResultStats[number].totalLandings,
+                    profit: this.spinResultStats[number].profitWhenLanded
+                }));
+
+                 // If no numbers landed yet, provide a list of all numbers with zero stats
+                 if (detailedStatsList.length === 0) {
+                      for (let i = 0; i <= 36; i++) {
+                           detailedStatsList.push({ number: i, landings: 0, profit: 0 });
+                      }
+                       // Sort the zero stats list by number
+                       detailedStatsList.sort((a, b) => a.number - b.number);
+                 }
+
+
+                return {
+                    mostFrequent: mostFrequentNumber,
+                    highestProfit: highestProfitNumber,
+                    detailedList: detailedStatsList,
+                    allStats: this.spinResultStats // Provide full object for raw data if needed elsewhere
+                };
+            }
+        }
+
+        class HistoryManager {
+            constructor() {
+                this.history = []; // Array of history entries
+            }
+
+            resetHistory() {
+                this.history = [];
+            }
+
+            addEntry(entry) {
+                this.history.push(entry);
+            }
+
+            getHistory() {
+                return this.history; // Return the raw history array
+            }
+
+             get nextRoundNumber() {
+                 return this.history.length + 1;
+             }
+        }
+
+        class UIManager {
+            constructor() {
+                // Cache DOM elements
+                this.elements = {
+                    initialBalanceInput: document.getElementById('initialBalance'),
+                    betIncrementAmountInput: document.getElementById('betIncrementAmount'),
+                    maxBetInput: document.getElementById('maxBet'),
+                    balanceDisplay: document.getElementById('balanceDisplay'),
+                    totalStagedBetDisplay: document.getElementById('totalStagedBetDisplay'),
+                    numberOfBetsDisplay: document.getElementById('numberOfBetsDisplay'),
+                    statusDisplay: document.getElementById('statusDisplay'),
+                    lastResultDisplay: document.getElementById('lastResultDisplay'),
+                    outcomeDisplay: document.getElementById('outcomeDisplay'),
+                    startGameBtn: document.getElementById('startGameBtn'),
+                    placeBetBtn: document.getElementById('placeBetBtn'),
+                    clearBetsBtn: document.getElementById('clearBetsBtn'),
+                    skipBetBtn: document.getElementById('skipBetBtn'),
+                    resetGameBtn: document.getElementById('resetGameBtn'),
+                    historyList: document.getElementById('historyList'),
+                    mostFrequentResultDisplay: document.getElementById('mostFrequentResultDisplay'),
+                    highestProfitResultDisplay: document.getElementById('highestProfitResultDisplay'),
+                    statsList: document.getElementById('statsList'),
+                    bettingCells: document.querySelectorAll('.grid-cell')
+                };
+            }
+
+            // Attaches event listeners, expects game instance or methods
+            attachEventListeners(game) {
+                this.elements.startGameBtn.addEventListener('click', () => game.startGame());
+                this.elements.placeBetBtn.addEventListener('click', () => game.placeBets());
+                this.elements.clearBetsBtn.addEventListener('click', () => game.clearBets());
+                this.elements.skipBetBtn.addEventListener('click', () => game.skipRound());
+                this.elements.resetGameBtn.addEventListener('click', () => game.resetGame());
+
+                this.elements.bettingCells.forEach(cell => {
+                    if (!cell.classList.contains('zero-bottom-cell')) {
+                        cell.addEventListener('click', () => game.handleTableBetClick(cell));
+                    }
+                });
+            }
+
+            readInputs() {
+                const initialBalance = parseFloat(this.elements.initialBalanceInput.value);
+                const betIncrementAmount = parseFloat(this.elements.betIncrementAmountInput.value);
+                const maxTotalBetPerRound = parseFloat(this.elements.maxBetInput.value);
+
+                 // Basic validation
+                if (isNaN(initialBalance) || initialBalance <= 0) {
+                    alert('Please enter a valid initial balance (> 0).');
+                    return null; // Indicate failure
+                }
+                if (isNaN(betIncrementAmount) || betIncrementAmount <= 0) {
+                     alert('Please enter a valid bet amount per click (> 0).');
+                    return null;
+                }
+                 if (isNaN(maxTotalBetPerRound) || maxTotalBetPerRound < 1) {
+                      alert('Maximum total bet per round must be at least 1.');
+                     return null;
+                 }
+                  if (betIncrementAmount > maxTotalBetPerRound) {
+                       alert(`Bet amount per click ($${betIncrementAmount.toFixed(2)}) cannot be greater than Maximum Total Bet Per Round ($${maxTotalBetPerRound.toFixed(2)}). Please adjust.`);
+                        return null;
+                  }
+
+                return { initialBalance, betIncrementAmount, maxTotalBetPerRound };
+            }
+
+            // Updates the game state displays (balance, staged bet counts)
+            displayGameState(balance, totalStagedBetAmount, numberOfBets, isGameStarted, canPlaceBets, canClearBets, canSkip) {
+                this.elements.balanceDisplay.textContent = balance.toFixed(2);
+                this.elements.totalStagedBetDisplay.textContent = totalStagedBetAmount.toFixed(2);
+                this.elements.numberOfBetsDisplay.textContent = numberOfBets;
+
+                this.elements.placeBetBtn.disabled = !canPlaceBets;
+                this.elements.clearBetsBtn.disabled = !canClearBets;
+                this.elements.skipBetBtn.disabled = !canSkip;
+            }
+
+            // Updates round results displays (status, result, outcome)
+            displayRoundResult(result, netProfit, roundType, roundNumber) {
+                // Display Spin Result Number with color
+                const resultSpan = document.createElement('span');
+                resultSpan.textContent = result;
+                resultSpan.className = NUMBER_COLORS[result];
+                this.elements.lastResultDisplay.innerHTML = '';
+                this.elements.lastResultDisplay.appendChild(resultSpan);
+
+                // Display Outcome
+                 this.elements.outcomeDisplay.className = ''; // Reset class
+                if (roundType === 'played') {
+                     if (netProfit > 0) {
+                        this.elements.outcomeDisplay.textContent = `Win! (+$${netProfit.toFixed(2)})`;
+                        this.elements.outcomeDisplay.classList.add('win');
+                    } else if (netProfit < 0) {
+                        this.elements.outcomeDisplay.textContent = `Loss (-$${Math.abs(netProfit).toFixed(2)})`;
+                         this.elements.outcomeDisplay.classList.add('loss');
+                    } else {
+                        this.elements.outcomeDisplay.textContent = 'No Change ($0.00)';
+                    }
+                     this.elements.statusDisplay.textContent = `Round ${roundNumber} finished.`;
+
+                } else if (roundType === 'skipped') {
+                     this.elements.outcomeDisplay.textContent = 'Skipped (No bet)';
+                     this.elements.statusDisplay.textContent = `Round ${roundNumber}: Skipped. Spun ${result}.`; // Show result number directly in status
+                } else {
+                     this.elements.outcomeDisplay.textContent = '-';
+                     this.elements.statusDisplay.textContent = `Round ${roundNumber} processed.`; // Generic
+                }
+            }
+
+             displayStatus(message) {
+                 this.elements.statusDisplay.textContent = message;
+             }
+
+
+            // Manages visual chips and selection highlights based on current active bets
+            updateVisualBets(activeBetsMap) {
+                // Remove all existing chips and 'selected' highlights
+                document.querySelectorAll('.chip').forEach(chip => chip.remove());
+                this.elements.bettingCells.forEach(cell => cell.classList.remove('selected'));
+
+                // Add chips and highlights for current active bets
+                activeBetsMap.forEach((bet, betKey) => {
+                    const cell = bet.cellElement;
+
+                    cell.classList.add('selected');
+
+                    const chip = document.createElement('div');
+                    chip.classList.add('chip');
+                    chip.textContent = bet.amount.toFixed(0); // Display chip value as whole number
+
+                    cell.appendChild(chip);
+                });
+            }
+
+             // Removes all visual chips and highlights
+             removeVisualBets() {
+                  document.querySelectorAll('.chip').forEach(chip => chip.remove());
+                  this.elements.bettingCells.forEach(cell => cell.classList.remove('selected'));
+             }
+
+            // Finds the cell corresponding to the winning number and highlights it
+            highlightWinningCell(winningNumber) {
+                this.removeWinningCellHighlight(); // Remove any previous highlight
+
+                // Find the cell element for the winning number's straight up bet
+                const winningCell = document.querySelector(`.roulette-grid [data-bet-type="straight"][data-bet-target="${winningNumber}"]`);
+
+                if (winningCell) {
+                    winningCell.classList.add('winning-cell');
+                } else if (winningNumber === 0) {
+                    // Specific class for zero might be different, fallback
+                     const zeroCell = document.querySelector('.cell-0[data-bet-type="straight"][data-bet-target="0"]');
+                     if(zeroCell) zeroCell.classList.add('winning-cell');
+                } else {
+                    console.warn("Winning cell element not found for number:", winningNumber);
+                }
+            }
+
+            // Removes the winning cell highlight from all cells
+            removeWinningCellHighlight() {
+                document.querySelectorAll('.winning-cell').forEach(cell => {
+                    cell.classList.remove('winning-cell');
+                });
+            }
+
+
+            displayHistory(history) {
+                this.elements.historyList.innerHTML = ''; // Clear current history display
+                // Use a copy and reverse to show most recent first without modifying the original array
+                [...history].reverse().forEach(entry => {
+                    const item = document.createElement('div');
+                    item.classList.add('history-item');
+                    const roundNumber = entry.round;
+                    const balanceAfter = `$${entry.balanceAfter.toFixed(2)}`;
+
+                    if (entry.type === 'played') {
+                        const totalBet = entry.totalBetAmount.toFixed(2);
+                        const outcomeText = entry.profit > 0 ? `<span class="win">+${entry.profit.toFixed(2)}</span>` : `<span class="loss">${entry.profit.toFixed(2)}</span>`;
+                        const resultSpan = `<span class="${NUMBER_COLORS[entry.result]}">${entry.result}</span>`;
+
+                        // Detail each bet placed in this round
+                        let betDetailsHTML = '';
+                        if (entry.bets && entry.bets.length > 0) {
+                           betDetailsHTML = entry.bets.map(bet => {
+                               const betName = BET_TYPE_NAMES[bet.type] || bet.type;
+                               const betTargetDisplay = bet.type === 'straight' && bet.target !== null ? ` (${bet.target})` : '';
+                                // Indicate win/loss for *this individual bet's return* vs amount bet
+                               const betReturn = bet.return || 0; // Handle potential undefined return
+                               // A bet "wins" if the return is more than 0 and at least the original amount (i.e., profit >= 0 for THIS bet)
+                               const betOutcomeClass = (betReturn > 0 && betReturn >= bet.amount) ? 'win' : (betReturn < bet.amount && bet.amount > 0 ? 'loss' : '');
+                               const betReturnDisplay = betReturn.toFixed(2);
+
+                               return ` $${bet.amount.toFixed(2)} on ${betName}${betTargetDisplay} (Returned: <span class="${betOutcomeClass}">$${betReturnDisplay}</span>)`;
+                           }).join(', ');
+                            betDetailsHTML = `<br> Bets: ${betDetailsHTML}`; // Add line break and label
+                        }
+
+                        item.innerHTML = `Round ${roundNumber}: Played Total $${totalBet}. Result ${resultSpan}. Round Outcome: ${outcomeText}. Balance: ${balanceAfter}${betDetailsHTML}`;
+                    } else if (entry.type === 'skipped') {
+                        const result = entry.result;
+                        const resultSpan = `<span class="${NUMBER_COLORS[result]}">${result}</span>`;
+                        item.innerHTML = `Round ${roundNumber}: <span style="font-style: italic;">Skipped</span>. Spun ${resultSpan}. Balance: ${balanceAfter} (No Change)`;
+                    }
+                    this.elements.historyList.appendChild(item);
+                });
+            }
+
+            displayStats(statsData) {
+                this.elements.statsList.innerHTML = ''; // Clear current stats display
+
+                // Display Most Frequent and Highest Profit numbers
+                if (statsData.mostFrequent) {
+                     this.elements.mostFrequentResultDisplay.textContent = `${statsData.mostFrequent.number} (${statsData.mostFrequent.landings} times)`;
+                } else {
+                     this.elements.mostFrequentResultDisplay.textContent = '-';
+                }
+
+                if (statsData.highestProfit) {
+                     const profitClass = statsData.highestProfit.profit > 0 ? 'win' : (statsData.highestProfit.profit < 0 ? 'loss' : '');
+                     this.elements.highestProfitResultDisplay.innerHTML = `${statsData.highestProfit.number} (<span class="${profitClass}">$${statsData.highestProfit.profit.toFixed(2)}</span>)`;
+                } else {
+                     this.elements.highestProfitResultDisplay.textContent = '-';
+                }
+
+                // Display detailed list for each number that landed (or all if none landed)
+                 statsData.detailedList.forEach(stats => {
+                      const item = document.createElement('p');
+                       const cellSpan = `<span class="${NUMBER_COLORS[stats.number]}">${stats.number}</span>`;
+                       const profitClass = stats.profit > 0 ? 'win' : (stats.profit < 0 ? 'loss' : '');
+                       item.innerHTML = `Number ${cellSpan}: Landed ${stats.landings} times, Net Profit (when landed) <span class="${profitClass}">$${stats.profit.toFixed(2)}</span>`;
+                       this.elements.statsList.appendChild(item);
+                 });
+
+            }
+
+             // Sets initial UI state (inputs enabled, buttons disabled/enabled)
+            setInitialState() {
+                 this.elements.initialBalanceInput.disabled = false;
+                 this.elements.betIncrementAmountInput.disabled = false;
+                 this.elements.maxBetInput.disabled = false;
+                 this.elements.startGameBtn.disabled = false;
+
+                 this.elements.placeBetBtn.disabled = true;
+                 this.elements.clearBetsBtn.disabled = true;
+                 this.elements.skipBetBtn.disabled = true; // Skip enabled only after game starts and no bets staged
+                 this.elements.resetGameBtn.disabled = false; // Always allowed
+
+                 this.elements.statusDisplay.textContent = 'Game reset. Set up and start a new game.';
+                 this.elements.lastResultDisplay.textContent = '-';
+                 this.elements.outcomeDisplay.textContent = '-';
+                 this.elements.outcomeDisplay.className = '';
+
+                 this.removeVisualBets();
+                 this.removeWinningCellHighlight();
+                 this.displayGameState(0, 0, 0, false, false, false, false); // Reset state displays
+            }
+
+            // Sets UI state after game starts
+             setStartedState() {
+                 this.elements.initialBalanceInput.disabled = true;
+                 this.elements.betIncrementAmountInput.disabled = true;
+                 this.elements.maxBetInput.disabled = true;
+                 this.elements.startGameBtn.disabled = true;
+
+                 // Buttons depend on active bets and balance, updated by displayGameState
+                 this.elements.placeBetBtn.disabled = true;
+                 this.elements.clearBetsBtn.disabled = true;
+                 this.elements.skipBetBtn.disabled = false; // Skip is allowed initially
+                 this.elements.resetGameBtn.disabled = false;
+
+                  this.removeVisualBets();
+                  this.removeWinningCellHighlight();
+
+                 this.elements.statusDisplay.textContent = 'Game started. Click betting areas on the table to place chips.';
+                 this.elements.lastResultDisplay.textContent = '-';
+                 this.elements.outcomeDisplay.textContent = '-';
+                 this.elements.outcomeDisplay.className = '';
+             }
+
+             // Sets UI state when game is over
+             setGameOverState() {
+                 this.elements.placeBetBtn.disabled = true;
+                 this.elements.clearBetsBtn.disabled = true;
+                 this.elements.skipBetBtn.disabled = true;
+                 // Reset button remains enabled
+                 this.elements.statusDisplay.textContent = 'Game over! Your balance is 0.';
+             }
+        }
+
+
+        class RouletteGame {
+            constructor(uiManager, rouletteWheel, gameStats, historyManager) {
+                this.uiManager = uiManager;
+                this.rouletteWheel = rouletteWheel;
+                this.gameStats = gameStats;
+                this.historyManager = historyManager;
+
+                this.balance = 0;
+                this.initialBalance = 0;
+                this.betIncrementAmount = 0;
+                this.maxTotalBetPerRound = 0;
+                this.isGameStarted = false;
+                this.activeBets = new Map(); // Map<string, Bet> key is Bet.key
+            }
+
+            // Called on page load or Reset
+            initialize() {
+                this.resetGame(); // Set initial state
+                this.uiManager.attachEventListeners(this); // Attach listeners after game object exists
+            }
+
+            startGame() {
+                const inputValues = this.uiManager.readInputs();
+                if (!inputValues) {
+                    return; // Validation failed in UIManager
+                }
+
+                this.initialBalance = inputValues.initialBalance;
+                this.betIncrementAmount = inputValues.betIncrementAmount;
+                this.maxTotalBetPerRound = inputValues.maxTotalBetPerRound;
+
+                this.balance = this.initialBalance;
+                this.activeBets.clear();
+                this.historyManager.resetHistory();
+                this.gameStats.resetStats();
+
+                this.isGameStarted = true;
+
+                this.uiManager.setStartedState(); // Update UI elements state
+                this.updateDisplays(); // Update balance, etc.
+                this.uiManager.displayHistory(this.historyManager.getHistory()); // Clear history display
+                this.uiManager.displayStats(this.gameStats.getStatsData()); // Display initial stats (all zeros)
+            }
+
+            // Handles clicks on the table cells to add/increment bets
+            handleTableBetClick(clickedCellElement) {
+                if (!this.isGameStarted || this.balance <= 0) {
+                     this.uiManager.displayStatus('Cannot place bets. Start the game or check balance.');
+                     this.updateDisplays(); // Ensure buttons are disabled if balance is 0
+                    return;
+                }
+
+                const type = clickedCellElement.dataset.betType;
+                // Target is either a number (for straight) or a string identifier (for outside bets)
+                const target = clickedCellElement.dataset.betTarget ? (type === 'straight' ? parseInt(clickedCellElement.dataset.betTarget) : clickedCellElement.dataset.betTarget) : null;
+
+                if (!type) {
+                    console.error("Clicked cell has no data-bet-type attribute:", clickedCellElement);
+                    return;
+                }
+
+                const betKey = type + (target !== null ? '_' + target : ''); // Unique key for this bet spot
+                let increment = this.betIncrementAmount; // Use the stored increment amount
+                let maxTotalBet = this.maxTotalBetPerRound; // Use the stored max total bet limit
+
+                // Recalculate current total staged bet amount
+                let currentTotalStagedBetAmount = Array.from(this.activeBets.values()).reduce((sum, bet) => sum + bet.amount, 0);
+
+                // Calculate how much *can* be added *to the total* without exceeding maxTotalBet or balance
+                let amountCanAddToTotal = Math.min(maxTotalBet, this.balance) - currentTotalStagedBetAmount;
+
+                if (amountCanAddToTotal <= 0) {
+                     this.uiManager.displayStatus(`Cannot add more chips. Total staged bet ($${currentTotalStagedBetAmount.toFixed(2)}) is already at or exceeds your balance ($${this.balance.toFixed(2)}) or the Maximum Total Bet ($${maxTotalBet.toFixed(2)}).`);
+                     this.updateDisplays(); // Ensure buttons are disabled
+                    return; // Cannot add more anywhere on the table
+                }
+
+                // The amount to add is the minimum of the increment and the amount allowed by the total limit
+                let amountToAdd = Math.min(increment, amountCanAddToTotal);
+
+                // Check if this bet key already exists
+                if (this.activeBets.has(betKey)) {
+                    const existingBet = this.activeBets.get(betKey);
+                     // Also cap the amountToAdd by the effective "spot limit" (which is the maxTotalBet)
+                     amountToAdd = Math.min(amountToAdd, maxTotalBet - existingBet.amount);
+
+                     if (amountToAdd <= 0) {
+                           // This happens if the spot amount is already at the maxTotalBet (acting as spot limit)
+                          this.uiManager.displayStatus(`Cannot add more chips to this spot. Bet on this spot ($${existingBet.amount.toFixed(2)}) is already at the Maximum Total Bet Per Round ($${maxTotalBet.toFixed(2)}).`);
+                           return;
+                     }
+
+                    // If all checks pass for existing bet, update the amount
+                    existingBet.amount += amountToAdd;
+
+                } else { // Adding a new bet
+                    // The amount to add is already capped by the total limit (amountToAdd)
+                    if (amountToAdd <= 0) {
+                        // This check is mostly for clarity, should be caught by amountCanAddToTotal <= 0 above
+                        this.uiManager.displayStatus(`Cannot place a new bet. Total staged bet ($${currentTotalStagedBetAmount.toFixed(2)}) is already at or exceeds your balance or the Maximum Total Bet.`);
+                        return;
+                    }
+                    // If checks pass for new bet, create and add it
+                    const newBet = new Bet(type, target, amountToAdd, clickedCellElement);
+                    this.activeBets.set(betKey, newBet);
+                }
+
+                // If we reached here, the bet was successfully added/updated
+                this.uiManager.updateVisualBets(this.activeBets); // Update visual chips and highlights for ALL active bets
+                this.updateDisplays(); // Update state displays
+
+                this.uiManager.displayStatus('Bet added/updated. Click "Place Bets" to spin.');
+                this.uiManager.displayRoundResult('-', null, 'pending', this.historyManager.nextRoundNumber); // Clear previous round result/outcome
+                 this.uiManager.removeWinningCellHighlight();
+            }
+
+
+            // This is triggered by the "Place Bets" button click
+            placeBets() {
+                const totalStagedBetAmount = Array.from(this.activeBets.values()).reduce((sum, bet) => sum + bet.amount, 0);
+
+                // Check if there are bets staged and if there's enough balance
+                if (!this.isGameStarted || this.activeBets.size === 0 || totalStagedBetAmount <= 0 || this.balance < totalStagedBetAmount) {
+                    this.uiManager.displayStatus('Cannot place bets. Place chips on the table, or check balance/total bet amount.');
+                     this.updateDisplays(); // Ensure button is disabled if conditions fail
+                    return;
+                }
+
+                 this.uiManager.removeWinningCellHighlight(); // Remove highlight from previous winning number
+
+                // Deduct the total bet amount from balance *before* calculating wins
+                this.balance -= totalStagedBetAmount;
+
+                const spinResult = this.rouletteWheel.spin(); // Spin the wheel
+
+                let totalReturn = 0;
+                const betsForHistory = []; // Array to store details of each bet placed this round
+
+                // Calculate return for each individual bet and the total return
+                this.activeBets.forEach(bet => {
+                    const returnForThisBet = bet.calculateReturn(spinResult);
+                    totalReturn += returnForThisBet;
+
+                    // Store bet details for history display
+                    betsForHistory.push({
+                        type: bet.type,
+                        target: bet.target,
+                        amount: bet.amount,
+                        return: returnForThisBet // Store individual bet return for history detail
+                    });
+                });
+
+                const netProfitThisRound = totalReturn - totalStagedBetAmount; // Net profit for the round
+                this.balance += totalReturn; // Add the total returned amount back to balance
+
+                const historyEntry = {
+                    round: this.historyManager.nextRoundNumber,
+                    type: 'played',
+                    totalBetAmount: totalStagedBetAmount,
+                    bets: betsForHistory, // Store the list of individual bets
+                    result: spinResult,
+                    profit: netProfitThisRound, // Store net profit for the round
+                    balanceAfter: this.balance,
+                    isWin: netProfitThisRound > 0 // Win is defined by total round profit
+                };
+                this.historyManager.addEntry(historyEntry);
+
+                // Update spin result stats for a played round
+                this.gameStats.updateStats(spinResult, netProfitThisRound, 'played');
+
+                // Update displays for a played round
+                this.uiManager.displayRoundResult(spinResult, netProfitThisRound, 'played', historyEntry.round);
+                this.updateDisplays(); // Update balance and staged bet (which is 0 after clearing)
+                this.uiManager.displayHistory(this.historyManager.getHistory());
+                this.uiManager.displayStats(this.gameStats.getStatsData());
+                this.uiManager.highlightWinningCell(spinResult); // Highlight winning number on the table
+
+                // Clear all placed chips and active bets after the round is processed
+                this.clearBets(false); // Clear bets internally without UI message
+
+                if (this.balance <= 0) {
+                    this.uiManager.setGameOverState();
+                     this.updateDisplays(); // Update display one last time
+                } else {
+                    // After a round, user must re-place bets for the next round
+                    this.uiManager.displayStatus(`Round ${historyEntry.round} finished. Click betting areas on the table to place chips for the next round.`);
+                }
+            }
+
+             // Clears all currently staged bets (internal logic)
+            clearBets(showUIMessage = true) {
+                 if (!this.isGameStarted || this.activeBets.size === 0) {
+                     if (showUIMessage) this.uiManager.displayStatus('No bets to clear.');
+                    return;
+                 }
+                 this.activeBets.clear();
+                 this.uiManager.removeVisualBets(); // Clear visuals
+                 this.updateDisplays(); // Update staged bet displays
+
+                 if (showUIMessage) {
+                      this.uiManager.displayStatus('Staged bets cleared. Select new bets or skip.');
+                      this.uiManager.displayRoundResult('-', null, 'pending', this.historyManager.nextRoundNumber); // Clear result area
+                     this.uiManager.removeWinningCellHighlight(); // Clear previous winning highlight
+                 }
+            }
+
+
+            // This function is called when the "Skip Round (Spin)" button is clicked
+            skipRound() {
+                 // Ensure any staged bets are cleared first (clearBets also updates UI/state)
+                 if (this.activeBets.size > 0) {
+                      this.uiManager.displayStatus('Cannot skip with bets staged. Clear bets first.');
+                      return;
+                 }
+
+                 if (!this.isGameStarted || this.balance <= 0) {
+                     this.uiManager.displayStatus('Cannot skip now. Start the game or check balance.');
+                     return;
+                 }
+
+                this.uiManager.removeVisualBets(); // Ensures activeBets is clear and visuals are gone
+                this.uiManager.removeWinningCellHighlight(); // Remove highlight from previous winning number
+
+
+                const spinResult = this.rouletteWheel.spin(); // Spin the wheel immediately upon skipping
+
+                const historyEntry = {
+                    round: this.historyManager.nextRoundNumber,
+                    type: 'skipped',
+                    result: spinResult, // Include the spin result
+                    balanceAfter: this.balance, // Balance does not change
+                    profit: 0 // Profit is zero for skipped rounds
+                };
+                this.historyManager.addEntry(historyEntry);
+
+                // Update spin result stats for a skipped round
+                this.gameStats.updateStats(spinResult, 0, 'skipped'); // Pass 0 profit and type 'skipped'
+
+                // Update displays for a skipped round
+                this.uiManager.displayRoundResult(spinResult, 0, 'skipped', historyEntry.round);
+                 this.updateDisplays(); // Update balance display (it didn't change)
+                this.uiManager.displayHistory(this.historyManager.getHistory());
+                this.uiManager.displayStats(this.gameStats.getStatsData());
+                this.uiManager.highlightWinningCell(spinResult); // Highlight winning number on the table
+
+                // Skip button remains enabled, Place Bet button is disabled until bets are placed again
+                 this.uiManager.updateControlButtons(this.isGameStarted, this.balance, this.activeBets.size, 0); // Re-evaluate button states
+            }
+
+
+            resetGame() {
+                this.isGameStarted = false;
+                this.balance = 0;
+                this.initialBalance = 0;
+                this.betIncrementAmount = 0;
+                this.maxTotalBetPerRound = 0;
+                this.activeBets.clear(); // Clear active bets
+
+                this.historyManager.resetHistory(); // Reset history data
+                this.gameStats.resetStats(); // Reset stats data
+
+                this.uiManager.setInitialState(); // Reset UI elements
+                this.uiManager.displayHistory(this.historyManager.getHistory()); // Clear history display
+                this.uiManager.displayStats(this.gameStats.getStatsData()); // Display initial stats (all zeros)
+            }
+
+            // Helper to update all relevant displays via UIManager
+            updateDisplays() {
+                 const totalStagedBetAmount = Array.from(this.activeBets.values()).reduce((sum, bet) => sum + bet.amount, 0);
+                 const numberOfBets = this.activeBets.size;
+
+                 // Determine button states
+                 const canPlaceBets = this.isGameStarted && numberOfBets > 0 && totalStagedBetAmount > 0 && totalStagedBetAmount <= this.balance;
+                 const canClearBets = this.isGameStarted && numberOfBets > 0;
+                 const canSkip = this.isGameStarted && this.balance > 0 && numberOfBets === 0; // Can only skip if no bets placed and balance allows playing next round
+
+                this.uiManager.displayGameState(
+                    this.balance,
+                    totalStagedBetAmount,
+                    numberOfBets,
+                    this.isGameStarted,
+                    canPlaceBets,
+                    canClearBets,
+                    canSkip
+                 );
+            }
+        }
+
+
+        // --- Initial Setup ---
+
+        // Create instances of the helper classes first
+        const uiManager = new UIManager();
+        const rouletteWheel = new RouletteWheel();
+        const gameStats = new GameStats();
+        const historyManager = new HistoryManager();
+
+        // Create the main game instance, passing the helpers
+        const rouletteGame = new RouletteGame(uiManager, rouletteWheel, gameStats, historyManager);
+
+        // Initialize the game (sets initial state and attaches listeners)
+        rouletteGame.initialize();
+
+
+    </script>
+
+</body>
+</html>
